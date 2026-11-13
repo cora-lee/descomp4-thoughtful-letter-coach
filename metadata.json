@@ -1,0 +1,6 @@
+{
+  "name": "Homework Journal – Thoughtful Letter Coach",
+  "description": "A conversational Thoughtful Letter Coach powered by Gemini that guides reflection before drafting, prevents hallucinated memories, and preserves the user's authentic voice.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
