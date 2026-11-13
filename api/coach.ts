@@ -67,29 +67,42 @@ RULES
 `;
 
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-      config: {
-        systemInstruction: ROLE_CARD,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            reply: { type: Type.STRING },
-            hasDraft: { type: Type.BOOLEAN },
-            draft: { type: Type.STRING },
-            changeSummary: { type: Type.STRING },
-            knownDetailsUsed: { type: Type.ARRAY, items: { type: Type.STRING } },
-            suggestionsProvided: { type: Type.ARRAY, items: { type: Type.STRING } },
-            clarifyingQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-            missingIntakeFields: { type: Type.ARRAY, items: { type: Type.STRING } },
-            toneAssessment: { type: Type.STRING },
+    let response: any;
+    let lastError: any;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            systemInstruction: ROLE_CARD,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                reply: { type: Type.STRING },
+                hasDraft: { type: Type.BOOLEAN },
+                draft: { type: Type.STRING },
+                changeSummary: { type: Type.STRING },
+                knownDetailsUsed: { type: Type.ARRAY, items: { type: Type.STRING } },
+                suggestionsProvided: { type: Type.ARRAY, items: { type: Type.STRING } },
+                clarifyingQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                missingIntakeFields: { type: Type.ARRAY, items: { type: Type.STRING } },
+                toneAssessment: { type: Type.STRING },
+              },
+              required: ['reply', 'hasDraft', 'knownDetailsUsed', 'suggestionsProvided', 'clarifyingQuestions'],
+            },
           },
-          required: ['reply', 'hasDraft', 'knownDetailsUsed', 'suggestionsProvided', 'clarifyingQuestions'],
-        },
-      },
-    });
+        });
+        if (response?.text) break;
+      } catch (error: any) {
+        lastError = error;
+        const retryable = error?.status === 503 || /503|UNAVAILABLE|high demand/i.test(String(error?.message));
+        if (!retryable || attempt === 3) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+      }
+    }
+    if (!response?.text && lastError) throw lastError;
 
     if (!response.text) throw new Error('No response returned by Gemini.');
     const data = JSON.parse(response.text);
